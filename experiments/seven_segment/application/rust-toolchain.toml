@@ -1,0 +1,10 @@
+[toolchain]
+channel = "nightly"
+profile = "default"
+components = [
+    "llvm-tools",
+    "rust-src"
+]
+targets = [
+    "thumbv6m-none-eabi"
+]

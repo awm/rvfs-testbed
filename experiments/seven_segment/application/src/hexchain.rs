@@ -14,7 +14,7 @@
 //!
 
 use cortex_m::singleton;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::{digital::OutputPin, spi::SpiBus};
 use rp_pico::hal::{dma, sio, sio::Lane};
 
 /// Maximum display chain length (number of hex digits).
@@ -63,7 +63,7 @@ const CHAR_TABLE: [u8; 16] = [
 pub trait Interp {
     /// Configure interpolator for lookup index generation.
     fn init(&mut self);
-    /// Generate a pair of (high nibble, low nibble) character lookup table indicies for the given byte of data.
+    /// Generate a pair of (high nibble, low nibble) character lookup table indices for the given byte of data.
     fn run(&mut self, data: u8) -> (usize, usize);
 }
 
@@ -100,11 +100,11 @@ interpolators!(Interp0, Interp1);
 /// Data which modifies the display state.
 #[allow(dead_code)]
 pub enum DisplayData<'a> {
-    /// Turn on all digits.
+    /// Turn on all digits (decimal points are unaffected).
     AllOn,
-    /// Turn off (blank) all digits.
+    /// Turn off (blank) all digits (decimal points are unaffected).
     AllOff,
-    /// Turn on those digits which are marked `true`, blank all others.
+    /// Turn on those digits which are marked `true`, blank all others (decimal points are unaffected).
     On(&'a [bool; CHAIN_LENGTH]),
     /// Set the decimal point for all digits which are marked `true`, clear it for all others.
     DecimalPoints(&'a [bool; CHAIN_LENGTH]),
@@ -115,7 +115,7 @@ pub enum DisplayData<'a> {
 /// Display chain controller.
 pub struct Display<S, C, D, I>
 where
-    S: dma::WriteTarget<TransmittedWord = u8>,
+    S: dma::WriteTarget<TransmittedWord = u8> + SpiBus,
     C: OutputPin,
     D: dma::SingleChannel,
     I: Interp,
@@ -141,7 +141,7 @@ where
 
 impl<S, C, D, I> Display<S, C, D, I>
 where
-    S: dma::WriteTarget<TransmittedWord = u8>,
+    S: dma::WriteTarget<TransmittedWord = u8> + SpiBus,
     C: OutputPin,
     D: dma::SingleChannel,
     I: Interp,
@@ -213,9 +213,9 @@ where
         chain_index: usize,
         char_lookup: usize,
     ) {
+        bits[chain_index] = self.points[chain_index];
         if self.on[chain_index] {
-            bits[chain_index] = CHAR_TABLE[char_lookup];
-            bits[chain_index] |= self.points[chain_index];
+            bits[chain_index] |= CHAR_TABLE[char_lookup];
         }
     }
 
@@ -235,7 +235,9 @@ where
 
         let _ = self.cs.set_low();
         let transfer = dma::single_buffer::Config::new(dma, bits, spi).start();
-        let (dma, bits, spi) = transfer.wait();
+        let (dma, bits, mut spi) = transfer.wait();
+        // Also need to wait for the SPI transmission to complete.
+        spi.flush().unwrap();
         let _ = self.cs.set_high();
 
         self.dma = Some(dma);

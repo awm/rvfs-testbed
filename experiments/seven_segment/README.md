@@ -9,6 +9,8 @@ the first data input tied to the SPI 1 TX pin on the microcontroller and the shi
 clock, with the SPI port configured in mode 0 (CPOL = 0, CPHA = 0).  Finally, shift register storage clock is driven by
 the SPI chip select line, latching the latest shifted-in values to the display.
 
+![Schematic](img/schematic.png)
+
 ## Firmware Architecture
 
 The pins selected for the interface allow for flexibility in the firmware implementation.  Any of the SPI 1 peripheral,
@@ -26,3 +28,9 @@ trigger the SPI transmission.
 Interpolator 0 is used to calculate the lookup table indices for each nibble of each byte.  This was done primarily to
 experiment with the interpolator rather than for any major performance advantage.  The same thing could be achieved in
 normal code with a few more cycles and some regular bitwise operations.
+
+## Results
+
+Successfully implemented and demonstrated:
+
+![Breadboarded circuit running](img/seven_segment.gif)
